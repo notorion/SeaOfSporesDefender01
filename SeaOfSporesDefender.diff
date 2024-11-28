@@ -1,0 +1,2076 @@
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/html/default/33846.htm b/L2J_Mobius_11.3_Shinemaker/dist/game/data/html/default/33846.htm
+index e677735694..e08369cd8e 100644
+--- a/L2J_Mobius_11.3_Shinemaker/dist/game/data/html/default/33846.htm
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/html/default/33846.htm
+@@ -1,5 +1,3 @@
+ <html><body>Paterson's Disciple Bacon:<br>
+-This dangerous place... you treat it like your living room. You're my kind of crazy.<br>
+-<button ALIGN=LEFT ICON="NORMAL" action="bypass -h npc_%objectId%_multisell 902">"I want to use some Steel Door Guild Coins."</button>
+-<Button ALIGN=LEFT ICON="QUEST" action="bypass -h npc_%objectId%_Quest">Quest</Button>
++This place is so dangerous and yet you walk around like it's a playground... You must truly be a great adventurer.
+ </body></html>
+\ No newline at end of file
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/scripts/ai/areas/SeaOfSpores/SeaOfSporesDefender.java b/L2J_Mobius_11.3_Shinemaker/dist/game/data/scripts/ai/areas/SeaOfSpores/SeaOfSporesDefender.java
+new file mode 100644
+index 0000000000..f7813e99c0
+--- /dev/null
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/scripts/ai/areas/SeaOfSpores/SeaOfSporesDefender.java
+@@ -0,0 +1,100 @@
++/*
++ * This file is part of the L2J Mobius project.
++ * 
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ * 
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program. If not, see <http://www.gnu.org/licenses/>.
++ */
++package ai.areas.SeaOfSpores;
++
++import java.util.Map;
++import java.util.concurrent.ConcurrentHashMap;
++import java.util.Random;
++
++import org.l2jmobius.gameserver.model.actor.Npc;
++import org.l2jmobius.gameserver.model.actor.Player;
++import org.l2jmobius.gameserver.enums.ChatType;
++
++import ai.AbstractNpcAI;
++
++/**
++ * @author Notorion
++ */
++public class SeaOfSporesDefender extends AbstractNpcAI
++{
++    // NPCs
++    private static final int FUNGUS_DEFENDER = 24649;
++    private static final int FUNGUS = 24650;
++    // Message
++    private static final String DEFENSE_MESSAGE = "You won't kill me! These spores make me immortal.";
++    // Talk
++    private static final Map<Npc, Long> TALK_COOLDOWN = new ConcurrentHashMap<>();
++    private static final long COOLDOWN_TIME = 60000; // 1 minute
++    // Memory NPCs Fungus
++    private static final Map<Npc, Integer> FUNGUS_COUNT_MAP = new ConcurrentHashMap<>();
++    private static final Map<Npc, int[][]> FUNGUS_POSITIONS_MAP = new ConcurrentHashMap<>();
++    private static final Random RANDOM = new Random();
++
++    private SeaOfSporesDefender()
++    {
++        addSpawnId(FUNGUS_DEFENDER);
++        addAttackId(FUNGUS_DEFENDER, FUNGUS);
++    }
++
++    @Override
++    public String onSpawn(Npc npc)
++    {
++        if (npc.getId() == FUNGUS_DEFENDER)
++        {
++            final int fungusCount = RANDOM.nextInt(4) + 3; 
++            FUNGUS_COUNT_MAP.put(npc, fungusCount);
++            final int radius = 65; 
++            final int[][] positions = new int[fungusCount][2];
++            for (int i = 0; i < fungusCount; i++)
++            {
++                final double angle = Math.toRadians((360.0 / fungusCount) * i);
++                final int x = npc.getX() + (int) (radius * Math.cos(angle));
++                final int y = npc.getY() + (int) (radius * Math.sin(angle));
++                positions[i][0] = x;
++                positions[i][1] = y;
++                addSpawn(FUNGUS, x, y, npc.getZ(), 0, false, 0);
++            }
++            FUNGUS_POSITIONS_MAP.put(npc, positions);
++        }
++        return super.onSpawn(npc);
++    }
++
++    @Override
++    public String onAttack(Npc npc, Player attacker, int damage, boolean isSummon)
++    {
++        if (npc.getId() == FUNGUS_DEFENDER || npc.getId() == FUNGUS)
++        {
++            npc.setCurrentHp(npc.getMaxHp());
++            if (npc.getId() == FUNGUS_DEFENDER && npc.isInCombat())
++            {
++                final long currentTime = System.currentTimeMillis();
++                final long lastTalkTime = TALK_COOLDOWN.getOrDefault(npc, 0L);
++                if ((currentTime - lastTalkTime) >= COOLDOWN_TIME)
++                {
++                    TALK_COOLDOWN.put(npc, currentTime);
++                    npc.broadcastSay(ChatType.NPC_GENERAL, DEFENSE_MESSAGE);
++                }
++            }
++        }
++        return super.onAttack(npc, attacker, damage, isSummon);
++    }
++
++    public static void main(String[] args)
++    {
++        new SeaOfSporesDefender();
++    }
++}
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSpores.xml b/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSpores.xml
+index 0ac4ce72b4..2a392ce7f3 100644
+--- a/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSpores.xml
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSpores.xml
+@@ -8,6 +8,7 @@
+ 			<npc id="33960" x="57450" y="31235" z="-3736" heading="51260" respawnTime="60sec" /> <!-- Barrier Enforcer -->
+ 			<npc id="33960" x="63633" y="20925" z="-3736" heading="33512" respawnTime="60sec" /> <!-- Barrier Enforcer -->
+ 			<npc id="34508" x="65480" y="26024" z="-3747" heading="32770" respawnTime="60sec" /> <!-- Battlefield Guide - Cursed Sword -->
++			<npc id="33846" x="41372" y="21926" z="-3877" heading="18357" respawnTime="60sec" /> <!-- Bacon - Paterson's Disciple -->
+ 		</group>
+ 	</spawn>
+ </list>
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSporesMonsters.xml b/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSporesMonsters.xml
+index bf3a2bddce..74707ce050 100644
+--- a/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSporesMonsters.xml
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SeaOfSporesMonsters.xml
+@@ -15,8 +15,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -33,8 +33,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -51,8 +51,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -69,8 +69,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -87,8 +87,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -105,8 +105,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -123,8 +123,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -141,8 +141,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -159,8 +159,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -177,8 +177,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -195,8 +195,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -213,8 +213,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -231,8 +231,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -249,8 +249,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -267,8 +267,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -285,8 +285,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -303,8 +303,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -321,8 +321,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -339,8 +339,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -357,8 +357,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -375,8 +375,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -393,8 +393,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -411,8 +411,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -429,8 +429,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -447,8 +447,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -465,8 +465,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -483,8 +483,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -501,8 +501,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -519,8 +519,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -537,8 +537,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -555,8 +555,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -573,8 +573,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -591,8 +591,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -609,8 +609,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -627,8 +627,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -645,8 +645,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -663,8 +663,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -681,8 +681,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -699,8 +699,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -717,8 +717,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -735,8 +735,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -753,8 +753,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -771,8 +771,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -789,8 +789,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -807,8 +807,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -825,8 +825,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -843,8 +843,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -861,8 +861,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -879,8 +879,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -897,8 +897,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -915,8 +915,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -933,8 +933,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -951,8 +951,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -969,8 +969,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -987,8 +987,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1005,8 +1005,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1023,8 +1023,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1041,8 +1041,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1059,8 +1059,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1077,8 +1077,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1095,8 +1095,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1113,8 +1113,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1131,8 +1131,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1149,8 +1149,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1167,8 +1167,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1185,8 +1185,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1203,8 +1203,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1221,8 +1221,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1239,8 +1239,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1257,8 +1257,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1275,8 +1275,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1293,8 +1293,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1311,8 +1311,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1329,8 +1329,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1347,8 +1347,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1365,8 +1365,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1383,8 +1383,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1401,8 +1401,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1419,8 +1419,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1437,8 +1437,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1455,8 +1455,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1473,8 +1473,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1491,8 +1491,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1509,8 +1509,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1527,8 +1527,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1545,8 +1545,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1563,8 +1563,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1581,8 +1581,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1599,8 +1599,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1617,8 +1617,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1635,8 +1635,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1653,8 +1653,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1671,8 +1671,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1689,8 +1689,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1707,8 +1707,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1725,8 +1725,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1743,8 +1743,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1761,8 +1761,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1779,8 +1779,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1797,8 +1797,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1815,8 +1815,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1833,8 +1833,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1851,8 +1851,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1869,8 +1869,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1887,8 +1887,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1905,8 +1905,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1923,8 +1923,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1941,8 +1941,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1959,8 +1959,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1977,8 +1977,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -1995,8 +1995,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2013,8 +2013,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2031,8 +2031,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2049,8 +2049,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2067,8 +2067,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2085,8 +2085,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2103,8 +2103,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2121,8 +2121,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2139,8 +2139,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2157,8 +2157,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2175,8 +2175,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2193,8 +2193,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2211,8 +2211,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2229,8 +2229,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2247,8 +2247,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2265,8 +2265,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2283,8 +2283,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2301,8 +2301,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2319,8 +2319,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2337,8 +2337,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2355,8 +2355,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2373,8 +2373,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2391,8 +2391,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2409,8 +2409,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2427,8 +2427,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2445,8 +2445,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2463,8 +2463,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2481,8 +2481,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2499,8 +2499,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2517,8 +2517,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2535,8 +2535,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2553,8 +2553,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2571,8 +2571,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2589,8 +2589,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2607,8 +2607,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2625,8 +2625,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2643,8 +2643,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2661,8 +2661,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2679,8 +2679,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2697,8 +2697,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2715,8 +2715,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2733,8 +2733,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2751,8 +2751,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2769,8 +2769,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2787,8 +2787,8 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ 	<spawn>
+ 		<territories>
+@@ -2805,7 +2805,7 @@
+ 		<npc id="24622" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Harane -->
+ 		<npc id="24623" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Lesatanas -->
+ 		<npc id="24624" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Arbor -->
+-		<npc id="24649" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
+-		<npc id="24650" count="1" respawnTime="18sec" chaseRange="900" /> <!-- Walking Fungus -->
++
++
+ 	</spawn>
+ </list>
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SealOfSporesDefender.xml b/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SealOfSporesDefender.xml
+new file mode 100644
+index 0000000000..8b587b8734
+--- /dev/null
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/spawns/Oren/SealOfSporesDefender.xml
+@@ -0,0 +1,84 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../xsd/spawns.xsd">
++	<spawn name="21_18">
++		<group>
++			<npc id="24649" x="58309" y="28359" z="-4241" heading="31649" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58593" y="29805" z="-3826" heading="19152" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="60511" y="30055" z="-3761" heading="50992" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58555" y="27058" z="-4668" heading="16446" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="57567" y="25930" z="-5026" heading="41023" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="57257" y="29365" z="-4177" heading="29615" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56006" y="27583" z="-5092" heading="42019" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="54410" y="28596" z="-5099" heading="30903" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53543" y="27749" z="-5197" heading="42275" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53646" y="26390" z="-5044" heading="33897" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="60885" y="27473" z="-3821" heading="54728" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="61154" y="26369" z="-3863" heading="62405" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="63136" y="24423" z="-3785" heading="50887" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="59145" y="24706" z="-4481" heading="32478" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="60741" y="24115" z="-4087" heading="49370" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="59181" y="25792" z="-4529" heading="31828" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56414" y="24792" z="-5279" heading="41246" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56214" y="25906" z="-5157" heading="32215" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56303" y="23602" z="-5106" heading="44219" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="54974" y="25064" z="-5308" heading="52453" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53565" y="23727" z="-5385" heading="33818" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53624" y="22575" z="-5308" heading="45077" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="51365" y="22582" z="-5467" heading="45379" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="50515" y="24349" z="-5041" heading="28111" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="48659" y="23030" z="-5252" heading="28132" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="47077" y="22277" z="-5145" heading="38849" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="46056" y="23225" z="-5200" heading="26595" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="43789" y="22872" z="-4964" heading="25928" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="62338" y="21679" z="-3824" heading="51160" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58924" y="19080" z="-4695" heading="29572" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="62341" y="16660" z="-3855" heading="54813" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="60425" y="16936" z="-4308" heading="56089" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58912" y="16297" z="-4584" heading="32872" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58176" y="15138" z="-4530" heading="27353" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="60468" y="14280" z="-4222" heading="62874" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="61721" y="14657" z="-3968" heading="35413" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="61313" y="12491" z="-4074" heading="57014" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="61991" y="11183" z="-3910" heading="49915" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="63036" y="10099" z="-3710" heading="41626" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="61332" y="10145" z="-3978" heading="5808" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="61453" y="8369" z="-3889" heading="52075" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="59357" y="9310" z="-4291" heading="38813" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58910" y="7873" z="-4259" heading="27554" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="58069" y="6931" z="-4308" heading="25792" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="57654" y="5633" z="-4256" heading="18806" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56037" y="6976" z="-4388" heading="20387" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="55480" y="5594" z="-4364" heading="42714" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="54445" y="7831" z="-4415" heading="21700" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53952" y="9161" z="-4452" heading="64967" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="52151" y="9103" z="-4388" heading="27452" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="54530" y="12925" z="-5676" heading="2425" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56775" y="11028" z="-4825" heading="56752" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53070" y="14700" z="-5706" heading="28473" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53585" y="15689" z="-5376" heading="27960" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="51874" y="16234" z="-5296" heading="289" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="50404" y="15017" z="-5348" heading="38303" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="49097" y="15994" z="-4948" heading="23223" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="50833" y="18395" z="-5192" heading="5069" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="50740" y="17384" z="-5437" heading="558" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="49418" y="18444" z="-5091" heading="25937" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="51415" y="19751" z="-5337" heading="50988" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="49201" y="20284" z="-5398" heading="28664" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="50421" y="20834" z="-5391" heading="9198" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="52620" y="21138" z="-5500" heading="56978" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="49241" y="21867" z="-5454" heading="56069" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="49777" y="23728" z="-5203" heading="17469" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="52333" y="21827" z="-5392" heading="38521" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="51121" y="21514" z="-5323" heading="11626" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="53746" y="20859" z="-5571" heading="4191" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="54979" y="20479" z="-5502" heading="59288" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="54710" y="22399" z="-5440" heading="11661" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="56817" y="20823" z="-5403" heading="5239" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="52600" y="24382" z="-5310" heading="51856" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="48454" y="24713" z="-4801" heading="25944" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="46721" y="20107" z="-5075" heading="48530" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="46336" y="24486" z="-5080" heading="19009" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++			<npc id="24649" x="43986" y="25330" z="-4833" heading="14641" respawnTime="60sec" /> <!-- Carnivorous Fungus - Sea of Spores Defender -->
++		</group>
++	</spawn>
++</list>
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/npcs/24600-24699.xml b/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/npcs/24600-24699.xml
+index 686520e53b..514b9aeb0e 100644
+--- a/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/npcs/24600-24699.xml
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/npcs/24600-24699.xml
+@@ -3307,6 +3307,11 @@
+ 		</dropLists>
+ 	</npc>
+ 	<npc id="24649" level="116" type="Monster" name="Carnivorous Fungus" title="Sea of Spores Defender">
++		<parameters>
++			<param name="MoveAroundSocial" value="0" />
++			<param name="MoveAroundSocial1" value="0" />
++			<skill name="Skill01_ID" id="34268" level="1" />
++		</parameters>
+ 		<race>PLANT</race>
+ 		<sex>FEMALE</sex>
+ 		<stats str="88" int="79" dex="55" wit="78" con="82" men="78">
+@@ -3314,14 +3319,15 @@
+ 			<attack physical="733514.268097518" magical="1543.76790583647" random="30" critical="4.75" accuracy="4.75" attackSpeed="250" type="SWORD" range="40" distance="80" width="120" />
+ 			<defence physical="60000" magical="200000" />
+ 			<attribute>
+-				<attack type="EARTH" value="2500" />
+-				<defence fire="2500" water="2500" wind="2500" earth="2500" holy="2500" dark="2500" />
++				<attack type="EARTH" value="1450" />
++				<defence fire="1600" water="1600" wind="1550" earth="1600" holy="1600" dark="1600" />
+ 			</attribute>
+ 			<speed>
+ 				<walk ground="70" />
+-				<run ground="110" />
++				<run ground="0" />
+ 			</speed>
+ 		</stats>
++		<status attackable="false" undying="true" canMove="false" targetable="false" />
+ 		<skillList>
+ 			<skill id="4416" level="5" /> <!-- Plants -->
+ 			<skill id="5465" level="1" /> <!-- Earth Attack -->
+@@ -3331,9 +3337,9 @@
+ 			<skill id="14818" level="1" /> <!-- Instant Kill Resistance -->
+ 			<skill id="16547" level="10" /> <!-- Danger Zone Resistance -->
+ 			<skill id="5599" level="12" /> <!-- Confusion Resistance -->
++			<skill id="34268" level="1" /> <!-- Walking Fungus' Energy Spike -->
+ 		</skillList>
+-		<status attackable="true" />
+-		<ai type="FIGHTER" clanHelpRange="450" aggroRange="450" isAggressive="true">
++		<ai type="MAGE" clanHelpRange="500" aggroRange="500" isAggressive="true">
+ 			<clanList>
+ 				<clan>SOS</clan>
+ 			</clanList>
+@@ -3344,19 +3350,23 @@
+ 		</collision>
+ 	</npc>
+ 	<npc id="24650" level="116" type="Monster" name="Walking Fungus">
++			<parameters>
++			<param name="MoveAroundSocial" value="0" />
++			<param name="MoveAroundSocial1" value="0" />
++		</parameters>
+ 		<race>PLANT</race>
+ 		<sex>FEMALE</sex>
+ 		<stats str="88" int="79" dex="55" wit="78" con="82" men="78">
+ 			<vitals hp="1278871" hpRegen="100.5" mp="2862" mpRegen="30.6" />
+-			<attack physical="733514.268097518" magical="1543.76790583647" random="30" critical="4.75" accuracy="4.75" attackSpeed="250" type="SWORD" range="40" distance="80" width="120" />
++			<attack physical="733514.268097518" magical="1543.76790583647" random="30" critical="4.75" accuracy="4.75" attackSpeed="250" type="SWORD" range="50" distance="50" width="120" />
+ 			<defence physical="60000" magical="200000" />
+ 			<attribute>
+-				<attack type="EARTH" value="2500" />
+-				<defence fire="2500" water="2500" wind="2500" earth="2500" holy="2500" dark="2500" />
++				<attack type="EARTH" value="1450" />
++				<defence fire="1600" water="1600" wind="1550" earth="1600" holy="1600" dark="1600" />
+ 			</attribute>
+ 			<speed>
+ 				<walk ground="70" />
+-				<run ground="110" />
++				<run ground="0" />
+ 			</speed>
+ 		</stats>
+ 		<skillList>
+@@ -3369,8 +3379,8 @@
+ 			<skill id="16547" level="10" /> <!-- Danger Zone Resistance -->
+ 			<skill id="5599" level="12" /> <!-- Confusion Resistance -->
+ 		</skillList>
+-		<status attackable="true" />
+-		<ai type="FIGHTER" clanHelpRange="450" aggroRange="450" isAggressive="true">
++		<status attackable="false" undying="true" canMove="false" targetable="false" />
++		<ai type="FIGHTER" clanHelpRange="150" aggroRange="100" isAggressive="true">
+ 			<clanList>
+ 				<clan>SOS</clan>
+ 			</clanList>
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/skills/34200-34299.xml b/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/skills/34200-34299.xml
+index 66df682e57..e2592ba82b 100644
+--- a/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/skills/34200-34299.xml
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/stats/skills/34200-34299.xml
+@@ -1041,7 +1041,26 @@
+ 	<skill id="34268" toLevel="1" name="Walking Fungus' Energy Spike">
+ 		<!-- A basic magic skill. -->
+ 		<icon>icon.skill0000</icon>
+-		<operateType>A1</operateType>
++		<castRange>400</castRange>
++		<coolTime>420</coolTime>
++		<effectPoint>-337</effectPoint>
++		<effectRange>400</effectRange>
++		<hitTime>780</hitTime>
++		<magicLevel>76</magicLevel>
++		<nextAction>CAST</nextAction>
++		<operateType>A1</operateType>
++		<reuseDelay>1000</reuseDelay>
++		<magicCriticalRate>5</magicCriticalRate>
++		<targetType>ENEMY</targetType>
++		<affectScope>SINGLE</affectScope>
++		<effects>
++			<effect name="PhysicalAttack">
++				<power>20000</power>
++				<ignoreShieldDefence>true</ignoreShieldDefence>
++				<criticalChance>30</criticalChance>
++				<overHit>true</overHit>
++			</effect>
++		</effects>
+ 	</skill>
+ 	<skill id="34269" toLevel="1" name="Unable to Target">
+ 		<!-- You cannot choose a target. -->
+diff --git a/L2J_Mobius_11.3_Shinemaker/dist/game/data/zones/water.xml b/L2J_Mobius_11.3_Shinemaker/dist/game/data/zones/water.xml
+index 55b4535c45..cee8885043 100644
+--- a/L2J_Mobius_11.3_Shinemaker/dist/game/data/zones/water.xml
++++ b/L2J_Mobius_11.3_Shinemaker/dist/game/data/zones/water.xml
+@@ -766,10 +766,10 @@
+ 		<node X="32768" Y="-32767" />
+ 		<node X="65536" Y="0" />
+ 	</zone>
+-	<zone name="21_18_water1" type="WaterZone" shape="Cuboid" minZ="-4780" maxZ="-3780">
+-		<node X="32768" Y="0" />
+-		<node X="65536" Y="10000" />
+-	</zone>
++	<!-- <zone name="21_18_water1" type="WaterZone" shape="Cuboid" minZ="-4780" maxZ="-3780"> -->
++		<!-- <node X="32768" Y="0" /> -->
++		<!-- <node X="65536" Y="10000" /> -->
++	<!-- </zone> -->
+ 	<zone name="21_19_water1" type="WaterZone" shape="Cuboid" minZ="-4780" maxZ="-3780">
+ 		<node X="32768" Y="32767" />
+ 		<node X="60672" Y="65535" />
